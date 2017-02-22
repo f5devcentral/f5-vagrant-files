@@ -2,6 +2,7 @@
 # vi: set ft=ruby :
 
 VAGRANTFILE_API_VERSION = 2
+
 ENV['BIGIP_LICENSE'] ||= ''
 ENV['BIGIP_PORT'] ||= '10443'
 ENV['BIGIP_NAME'] ||= 'big-ip01.internal'
