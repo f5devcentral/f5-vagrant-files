@@ -37,7 +37,7 @@ Those options are all probably less than ideal, but I don't make the rules.
 I guarantee that you will find no help from F5 official support. I'm
 putting this repository out there simply as a proof of concept.
 
-If something doesn't work, you're free to raise Issues in Github here, but
+If something does not work, you're free to raise Issues in Github here, but
 I may not respond to them immediately, or at all.
 
 ## Instructions
