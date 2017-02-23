@@ -1,35 +1,39 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
-BIGIP_LICENSE = ''
 VAGRANTFILE_API_VERSION = 2
 
-if ENV['BIGIP_LICENSE']
-  BIGIP_LICENSE=ENV['BIGIP_LICENSE']
-end
+ENV['BIGIP_LICENSE'] ||= ''
+ENV['BIGIP_PORT'] ||= '10443'
+ENV['BIGIP_NAME'] ||= 'big-ip01.internal'
+ENV['BOX_URL'] ||= './BIGIP-11.6.1.0.0.317.box'
 
-if ENV['BIGIP_PORT']
-  BIGIP_PORT=ENV['BIGIP_PORT']
-else
-  BIGIP_PORT=10443
-end
+WAIT_FOR_BIGIP = <<SHELL
+for retries in {1..100} ; do
+    # Retry until mcpd completes startup
+    tmsh -a show sys mcp-state field-fmt 2>/dev/null | grep phase | grep running
+    rc=$?
+    if [ $rc -eq 0 ]; then break ; fi
+    sleep 30
+done
 
-if ENV['BIGIP_NAME']
-  BIGIP_NAME=ENV['BIGIP_NAME']
-else
-  BIGIP_NAME="big-ip01.internal"
-end
+if [ $rc -ne 0 ]; then
+    /usr/bin/tmsh -a show sys mcp-state field-fmt
+fi
+echo "Runlevel is now valid, kicking off provisioning..."
+sleep 5
+SHELL
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.boot_timeout = 3600
 
-  config.vm.define BIGIP_NAME do |v|
-    v.vm.box = "./BIGIP-11.6.1.0.0.317.box"
+  config.vm.define ENV['BIGIP_NAME'] do |v|
+    v.vm.box = ENV['BOX_URL']
 
     # BIG-IP cannot mount shares in Virtualbox because Guest-Additions
     # cannot be installed on it.
     v.vm.synced_folder ".", "/vagrant", disabled: true
-    v.vm.network :forwarded_port, guest: 443, host: BIGIP_PORT
+    v.vm.network :forwarded_port, guest: 443, host: ENV['BIGIP_PORT']
 
     v.vm.network :private_network, ip: "10.2.2.2", auto_config: false
     v.vm.network :private_network, ip: "10.2.3.2", auto_config: false
@@ -41,7 +45,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       p.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
       p.customize ["modifyvm", :id, "--memory", 4096]
       p.customize ["modifyvm", :id, "--cpus", 2]
-      p.customize ["modifyvm", :id, "--name", BIGIP_NAME]
+      p.customize ["modifyvm", :id, "--name", ENV['BIGIP_NAME']]
 
       # NICs need to be virtio because BIG-IP doesn't have drivers for
       # the others
@@ -54,21 +58,15 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     end
 
     v.vm.provision "shell", inline: <<-SHELL
-      while true; do
-          string=`tmsh show sys failover`
-          if [[ $string == *"active"* ]]
-          then
-              break
-          else
-              echo "Runlevel is 'unknown' - waiting for 10s"
-              sleep 10
-          fi
-      done
-      echo "Runlevel is now valid, kicking off provisioning..."
-    SHELL
+#{WAIT_FOR_BIGIP}
 
-    v.vm.provision "shell", inline: <<-SHELL
       tmsh load /sys config default
+      sleep 5
+      /usr/local/bin/SOAPLicenseClient --basekey  #{ENV['BIGIP_LICENSE']}
+      sleep 5
+
+      #{WAIT_FOR_BIGIP}
+
       tmsh modify sys dns name-servers replace-all-with { 10.0.2.3 }
       tmsh modify sys db setup.run value false
       tmsh create net vlan net1 interfaces add { 1.1 }
@@ -76,8 +74,6 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       tmsh create net vlan net2 interfaces add { 1.2 }
       tmsh create net self net2 address 10.2.3.2/255.255.255.0 vlan net2
       tmsh save sys config
-      sleep 10
-      /usr/local/bin/SOAPLicenseClient --basekey  #{BIGIP_LICENSE}
     SHELL
   end
 end
