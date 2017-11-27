@@ -24,13 +24,14 @@ will say to yourself
 
 And you will be right!
 
-There are three options here
+There are two options here
 
-  * Get iWorkflow and buy a pool of licenses to activate against
+  * Get BIG-IQ License Manager to check-in/check-out licenses using the 
+  [License Assign/Revoke API](https://devcentral.f5.com/wiki/BIGIQ.HowToSamples_license_member_management.ashx)
   * Use a single license and call F5 support every time you need to 'vagrant up'
-  * Request that F5 begin selling "recycleable" developer licenses
-  
-Those options are all probably less than ideal, but I don't make the rules.
+
+You no longer need to purchase a full-blown iWorkflow license or pool 
+licenses to take advantage of license self-management.
 
 ## Support
 
